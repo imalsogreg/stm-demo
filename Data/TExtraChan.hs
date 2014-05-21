@@ -3,6 +3,7 @@ module Data.TExtraChan where
 import Control.Applicative
 import Control.Concurrent.STM
 
+
 data ExtraChan a = ExtraChan { tchan   :: TChan a
                              , minEver :: TVar a
                              , maxEver :: TVar a
@@ -34,10 +35,22 @@ extraChanLength = readTVar . lLength
 
 chanInfo :: (Show a) => ExtraChan a -> STM String
 chanInfo t = do
+  xs   <- tChanToList $ tchan t
   min' <- readTVar $ minEver t
   max' <- readTVar $ maxEver t
   len' <- readTVar $ lLength t
-  return $ unwords ["Min:",show min'
+  return $ unwords ["Vals:", show xs
+                   ,"Min:",show min'
                    ,"Max:",show max'
                    ,"Len:",show len'
                    ]
+
+tChanToList :: TChan a -> STM [a]
+tChanToList c = go []
+ where go acc = do
+         eofChan <- isEmptyTChan c
+         case eofChan of
+           True  -> return $ reverse acc
+           False -> do
+             v <- readTChan c
+             go (v:acc)

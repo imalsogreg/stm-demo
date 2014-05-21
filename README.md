@@ -8,8 +8,6 @@ To install:
 git clone https://github.com/ImAlsoGreg/stm-demo.git
 cd stm-demo
 cabal sandbox init
-cabal repl
->> :load Demo.hs
+cabal install
+.cabal-sandbox/bin/demo m 2 2 1 +RTS -N4  (for example)
 ```
-
-**Nothing here yet, please check back around May 15th! Message me if you would like to influence what goes up here. Target audience is someone fairly new to Haskell, with a rough idea about monads.**

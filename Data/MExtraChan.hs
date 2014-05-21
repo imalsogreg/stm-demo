@@ -47,10 +47,12 @@ extraChanLength c = readMVar (lLength c)
 
 chanInfo :: (Show a) => ExtraChan a -> IO String
 chanInfo c = do
+  xs   <- getChanContents (chan c)
   min' <- readMVar (minEver c)
   max' <- readMVar (maxEver c)
   len' <- readMVar (lLength c)
-  return $ unwords ["Min:", show min'
+  return $ unwords ["Vals:", show xs
+                   ,"Min:", show min'
                    ,"Max:", show max'
                    ,"Len:", show len'
                    ]

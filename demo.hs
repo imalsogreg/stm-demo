@@ -1,17 +1,19 @@
 module Main where
 
 ------------------------------------------------------------------------------
-import Control.Concurrent (threadDelay)
+import Control.Applicative
+import Control.Concurrent       (threadDelay)
 import Control.Concurrent.Async (async, wait)
-import Control.Concurrent.STM (atomically)
-import Control.Monad (forM, replicateM_)
-import System.Environment (getArgs)
-import System.Random (randomRIO)
-import Text.Printf (printf)
+import Control.Concurrent.STM   (atomically)
+import Control.Monad            (forM, replicateM_,replicateM)
+import System.Environment       (getArgs)
+import System.Random            (randomRIO)
+import Text.Printf              (printf)
+import Data.Foldable            (toList)
 ------------------------------------------------------------------------------
 import qualified Data.MExtraChan as M
 import qualified Data.TExtraChan as T
-
+import qualified Data.CExtraChan as C
 
 -- |Set the average interval between operations in a thread
 rate :: Double
@@ -75,20 +77,47 @@ exercise c nWrite nRead nLength = do
 
   mapM_ wait (rs ++ ws ++ ls)
 
+  case c of
+    Left  m -> putStrLn =<< M.chanInfo m
+    Right t -> putStrLn =<< atomically (T.chanInfo t)
+
 main :: IO ()
 main = do
   args <- getArgs
-  (m,t) <- initChans
+  (m,t,c) <- initChans
   case args of
-    ["t", r, w, l] -> exercise t (read r) (read w) (read l)
-    ["m", r, w, l] -> exercise m (read r) (read w) (read l)
+    ["t", r, w, l] -> exercise  t (read r) (read w) (read l)  -- STM
+    ["m", r, w, l] -> exercise  m (read r) (read w) (read l)  -- TVar  (mutex-like)
+    ["c", r, w, l] -> exerciseC c (read r) (read w) (read l)  -- IORef
     []    -> exercise t 3 3 3 >> exercise m 3 3 3
     _     -> error "Usage: demo [m|t] nWriters nReaders nLengthers"
 
-initChans :: IO (DemoChan Int, DemoChan Int)
+initChans :: IO (DemoChan Int, DemoChan Int,C.ExtraChan Int)
 initChans = do
   m <- M.newExtraChan
   t <- atomically T.newExtraChan
-  return (Left m, Right t)
+  c <- C.newExtraChan
+  return (Left m, Right t, c)
 
 type ThreadName = String
+
+------------------------------------------------------------------------------
+-- |Just for fun - a completely not-threadsafe ExtraChan
+exerciseC :: C.ExtraChan Int -> Int -> Int -> Int -> IO ()
+exerciseC c nR nW nL = do
+  ws <- forM [1..nW] $ \n -> async $
+                             replicateM_ 200
+                             (jitterAction (C.writeExtraChan c n) >>
+                              putStrLn ("Wrote " ++ show n)
+                             )
+
+  rs <- replicateM nR . async $
+        replicateM_ 200 (jitterAction
+                         (C.readExtraChan c >>= print))
+
+  ls <- replicateM nL . async $
+        replicateM_ 200 (jitterAction
+                         (C.extraChanLength c >>=
+                          (putStrLn . ("Length: " ++) . show)))
+  mapM_ wait (ws++rs++ls)
+  putStrLn =<< C.describe c
