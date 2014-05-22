@@ -2,6 +2,7 @@ stm-demo
 ========
 
 Code to accompany the Boston Haskell Meetup talk on STM
+
 Slides are here: http://www.webglog.net/slides/stm-demo-slides.html
 
 To install:
